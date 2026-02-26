@@ -3,7 +3,7 @@ CREATE TABLE users (
     username TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL
 );
-CREATE TABLE sqlite_sequence(name,seq);
+/* CREATE TABLE sqlite_sequence(name,seq); REMOVED: Auto-created by SQLite */
 CREATE TABLE trunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
