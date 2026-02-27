@@ -145,8 +145,13 @@ if [ ! -f "$DB_PATH" ]; then
     echo "Creating Database..."
     sqlite3 $DB_PATH < $WEB_ROOT/schema.sql
     
+    # Enable WAL Mode immediately (CRITICAL FIX)
+    sqlite3 $DB_PATH "PRAGMA journal_mode=WAL;"
+    
+    # Create Performance Index (CRITICAL FIX)
+    sqlite3 $DB_PATH "CREATE INDEX IF NOT EXISTS idx_camp_status ON campaign_numbers (campaign_id, status);"
+    
     # Create Admin User (Default: admin/admin)
-    # Generate hash for 'admin'
     php -r 'echo password_hash("admin", PASSWORD_DEFAULT);' > /tmp/admin_pass
     PASS_HASH=$(cat /tmp/admin_pass)
     
@@ -156,9 +161,18 @@ fi
 # Set Permissions
 chown -R www-data:www-data /var/www/html
 chown -R www-data:www-data /var/www/db
-chmod -R 775 /var/www/html/autodialer/uploads
+mkdir -p $WEB_ROOT/uploads/lists
+mkdir -p $WEB_ROOT/uploads/ivrs
+mkdir -p $WEB_ROOT/uploads/cids
+chmod -R 775 $WEB_ROOT/uploads
 chmod 775 $(dirname $DB_PATH)
 chmod 664 $DB_PATH
+
+# Configure PHP Limits (CRITICAL FIX)
+sed -i 's/upload_max_filesize = .*/upload_max_filesize = 100M/' /etc/php/*/apache2/php.ini
+sed -i 's/post_max_size = .*/post_max_size = 100M/' /etc/php/*/apache2/php.ini
+sed -i 's/memory_limit = .*/memory_limit = 512M/' /etc/php/*/apache2/php.ini
+sed -i 's/max_execution_time = .*/max_execution_time = 300/' /etc/php/*/apache2/php.ini
 
 # Configure Apache
 cat > /etc/apache2/sites-available/autodialer.conf <<EOF
@@ -181,6 +195,10 @@ a2dissite 000-default.conf
 a2ensite autodialer.conf
 a2enmod rewrite
 systemctl restart apache2
+
+# Setup Log Files (CRITICAL FIX)
+touch /var/log/fs_dialer.log /var/log/fs_monitor.log
+chown www-data:www-data /var/log/fs_dialer.log /var/log/fs_monitor.log
 
 # Setup Background Services (Dialer & Monitor)
 # Dialer Service
